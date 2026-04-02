@@ -7,6 +7,9 @@ import { useGetIdentity, useLogout } from '@refinedev/core';
 const navigationItems = [
   { href: '/tenants', label: 'Tenants' },
   { href: '/users', label: 'Users' },
+  { href: '/transportadoras', label: 'Transportadoras' },
+  { href: '/centros-distribuicao', label: 'Centros de Distribuicao' },
+  { href: '/regras-frete', label: 'Regras de Frete' },
 ];
 
 export function AdminShell({

@@ -26,10 +26,26 @@ export class CreateRegraFreteDto {
   @MaxLength(120)
   marketplace?: string;
 
+  @IsUUID()
+  transportadoraId!: string;
+
+  @IsUUID()
+  centroDistribuicaoId!: string;
+
   @IsOptional()
   @IsString()
   @Length(2, 2)
   ufDestino?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(8, 8)
+  cepInicial?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(8, 8)
+  cepFinal?: string;
 
   @ValidateIf((object) => object.pesoMin !== undefined)
   @Type(() => Number)
@@ -47,4 +63,9 @@ export class CreateRegraFreteDto {
   @IsInt()
   @Min(0)
   prioridade!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  observacao?: string;
 }

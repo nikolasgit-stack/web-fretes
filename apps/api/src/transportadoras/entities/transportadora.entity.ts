@@ -1,4 +1,5 @@
 import { Column, Entity, Index, OneToMany } from 'typeorm';
+import { RegraFrete } from '../../regras-frete/entities/regra-frete.entity';
 import { TenantScopedEntity } from '../../common/tenant-scoped.entity';
 import { TabelaFrete } from '../../tabelas-frete/entities/tabela-frete.entity';
 
@@ -17,12 +18,21 @@ export class Transportadora extends TenantScopedEntity {
   @Column({ type: 'varchar', length: 80 })
   codigoInterno!: string;
 
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  modalidade!: string | null;
+
   @Column({
     type: 'enum',
     enum: TipoIntegracaoTransportadora,
     default: TipoIntegracaoTransportadora.MANUAL,
   })
   tipoIntegracao!: TipoIntegracaoTransportadora;
+
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  contato!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  observacao!: string | null;
 
   @Column({ type: 'boolean', default: true, name: 'ativo' })
   ativo!: boolean;
@@ -56,4 +66,7 @@ export class Transportadora extends TenantScopedEntity {
 
   @OneToMany(() => TabelaFrete, (tabelaFrete) => tabelaFrete.transportadora)
   tabelasFrete!: TabelaFrete[];
+
+  @OneToMany(() => RegraFrete, (regraFrete) => regraFrete.transportadora)
+  regrasFrete!: RegraFrete[];
 }

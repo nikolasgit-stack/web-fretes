@@ -1,5 +1,6 @@
 import {
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsUUID,
   Length,
@@ -20,6 +21,11 @@ export class CreateCentroDistribuicaoDto {
   @MaxLength(80)
   codigoInterno!: string;
 
+  @IsOptional()
+  @IsString()
+  @Length(8, 8)
+  cep?: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)
@@ -28,4 +34,9 @@ export class CreateCentroDistribuicaoDto {
   @IsString()
   @Length(2, 2)
   estado!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  endereco?: string;
 }

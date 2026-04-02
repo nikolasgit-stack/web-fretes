@@ -10,6 +10,7 @@ import { Tenant } from '../tenants/entities/tenant.entity';
 import { Transportadora } from '../transportadoras/entities/transportadora.entity';
 import { User } from '../users/entities/user.entity';
 import { InitialSchema1710000000000 } from './migrations/1710000000000-InitialSchema';
+import { OperationalCrudFields1711000000000 } from './migrations/1711000000000-OperationalCrudFields';
 
 export default new DataSource({
   type: 'postgres',
@@ -36,5 +37,8 @@ export default new DataSource({
     Cotacao,
     CotacaoOpcao,
   ],
-  migrations: [InitialSchema1710000000000],
+  migrations: [
+    InitialSchema1710000000000,
+    OperationalCrudFields1711000000000,
+  ],
 });

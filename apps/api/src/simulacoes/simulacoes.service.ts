@@ -42,7 +42,7 @@ export class SimulacoesService {
     const tabelas = (await this.tabelasFreteService.findAll()).filter(
       (tabela) => tabela.tenantId === simularCotacaoDto.tenantId && tabela.ativa,
     );
-    const regras = (await this.regrasFreteService.findAll()).filter(
+    const regras = (await this.regrasFreteService.findAll({})).filter(
       (regra) => regra.tenantId === simularCotacaoDto.tenantId && regra.ativo,
     );
 
@@ -151,6 +151,7 @@ export class SimulacoesService {
     },
     tabelas: Array<{
       transportadoraId: string;
+      centroDistribuicaoId: string;
       tipoTabela: string;
       transportadora: {
         id: string;
@@ -174,7 +175,11 @@ export class SimulacoesService {
     regras: Array<{
       nome: string;
       marketplace: string | null;
+      transportadoraId: string | null;
+      centroDistribuicaoId: string | null;
       ufDestino: string | null;
+      cepInicial: string | null;
+      cepFinal: string | null;
       pesoMin: number | null;
       pesoMax: number | null;
       prioridade: number;
@@ -194,15 +199,34 @@ export class SimulacoesService {
           .find((regra) => {
             const marketplaceOk =
               !regra.marketplace || regra.marketplace === input.marketplace;
+            const transportadoraOk =
+              !regra.transportadoraId ||
+              regra.transportadoraId === transportadora.id;
+            const centroDistribuicaoOk =
+              !regra.centroDistribuicaoId ||
+              regra.centroDistribuicaoId === tabela.centroDistribuicaoId;
             const ufOk =
               !regra.ufDestino ||
               (ufDestino !== null && regra.ufDestino === ufDestino);
+            const cepInicialOk =
+              !regra.cepInicial || input.cepDestino >= regra.cepInicial;
+            const cepFinalOk =
+              !regra.cepFinal || input.cepDestino <= regra.cepFinal;
             const pesoMinOk =
               regra.pesoMin === null || totais.pesoTotal >= regra.pesoMin;
             const pesoMaxOk =
               regra.pesoMax === null || totais.pesoTotal <= regra.pesoMax;
 
-            return marketplaceOk && ufOk && pesoMinOk && pesoMaxOk;
+            return (
+              marketplaceOk &&
+              transportadoraOk &&
+              centroDistribuicaoOk &&
+              ufOk &&
+              cepInicialOk &&
+              cepFinalOk &&
+              pesoMinOk &&
+              pesoMaxOk
+            );
           }) ?? null;
 
       const semCobertura = !this.temCoberturaBasica(input.cepDestino);

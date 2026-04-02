@@ -112,9 +112,9 @@ a {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
-  min-height: 48px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--surface-strong);
@@ -124,9 +124,21 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid rgba(11, 126, 164, 0.2);
   border-color: var(--primary-strong);
+}
+
+input,
+select {
+  min-height: 48px;
+}
+
+textarea {
+  min-height: 120px;
+  padding: 14px;
+  resize: vertical;
 }
 
 .primary-button,
@@ -356,6 +368,59 @@ select:focus {
 .form-actions {
   display: flex;
   justify-content: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-actions button,
+.table-actions a {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  color: var(--foreground);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.table-actions a {
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-inline {
+  margin: 0;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.field-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field-inline input[type='checkbox'] {
+  width: auto;
+  min-height: auto;
+}
+
+.muted-text {
+  color: var(--muted);
 }
 
 .table-wrap {
@@ -446,6 +511,10 @@ select:focus {
   }
 
   .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-grid {
     grid-template-columns: 1fr;
   }
 

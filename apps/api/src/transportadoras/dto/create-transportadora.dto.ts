@@ -29,8 +29,23 @@ export class CreateTransportadoraDto {
   @MaxLength(80)
   codigoInterno!: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  modalidade?: string;
+
   @IsEnum(TipoIntegracaoTransportadora)
   tipoIntegracao!: TipoIntegracaoTransportadora;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(180)
+  contato?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  observacao?: string;
 
   @Type(() => Number)
   @IsNumber()

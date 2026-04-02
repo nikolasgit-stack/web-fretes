@@ -1,11 +1,15 @@
 import {
   BaseRecord,
   CreateParams,
+  CrudFilter,
   DataProvider,
+  DeleteOneParams,
   GetListParams,
   GetManyParams,
   GetOneParams,
   HttpError,
+  UpdateParams,
+  CustomParams,
 } from '@refinedev/core';
 
 function buildHeaders(): HeadersInit {
@@ -14,13 +18,44 @@ function buildHeaders(): HeadersInit {
   };
 }
 
+function isSimpleFilter(filter: CrudFilter): filter is Extract<CrudFilter, { field: string }> {
+  return 'field' in filter && 'operator' in filter;
+}
+
+function buildQueryString(params?: GetListParams): string {
+  const searchParams = new URLSearchParams();
+
+  params?.filters?.forEach((filter) => {
+    if (!isSimpleFilter(filter)) {
+      return;
+    }
+
+    const { field, operator, value } = filter;
+
+    if (value === undefined || value === null || value === '') {
+      return;
+    }
+
+    if (operator === 'eq' || operator === 'contains') {
+      searchParams.set(field, String(value));
+    }
+  });
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
+}
+
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let message = 'Erro ao comunicar com a API.';
 
     try {
-      const errorBody = (await response.json()) as { message?: string };
-      message = errorBody.message ?? message;
+      const errorBody = (await response.json()) as {
+        message?: string | string[];
+      };
+      message = Array.isArray(errorBody.message)
+        ? errorBody.message.join(', ')
+        : (errorBody.message ?? message);
     } catch {
       message = response.statusText || message;
     }
@@ -29,6 +64,10 @@ async function parseResponse<T>(response: Response): Promise<T> {
       message,
       statusCode: response.status,
     } as HttpError;
+  }
+
+  if (response.status === 204) {
+    return {} as T;
   }
 
   return (await response.json()) as T;
@@ -43,7 +82,8 @@ export function dataProvider(apiUrl: string): DataProvider {
       params: GetListParams,
     ) => {
       const { resource, pagination } = params;
-      const response = await fetch(`${baseUrl}/${resource}`, {
+      const queryString = buildQueryString(params);
+      const response = await fetch(`${baseUrl}/${resource}${queryString}`, {
         headers: buildHeaders(),
         cache: 'no-store',
       });
@@ -98,11 +138,40 @@ export function dataProvider(apiUrl: string): DataProvider {
         data,
       };
     },
-    update: async () => {
-      throw new Error('Update ainda nao implementado na Fase 1.');
+    update: async <
+      TData extends BaseRecord = BaseRecord,
+      TVariables = {}
+    >(
+      params: UpdateParams<TVariables>,
+    ) => {
+      const { resource, id, variables } = params;
+      const response = await fetch(`${baseUrl}/${resource}/${id}`, {
+        method: 'PATCH',
+        headers: buildHeaders(),
+        body: JSON.stringify(variables),
+      });
+      const data = await parseResponse<TData>(response);
+
+      return {
+        data,
+      };
     },
-    deleteOne: async () => {
-      throw new Error('Delete ainda nao implementado na Fase 1.');
+    deleteOne: async <
+      TData extends BaseRecord = BaseRecord,
+      TVariables = {}
+    >(
+      params: DeleteOneParams<TVariables>,
+    ) => {
+      const { resource, id } = params;
+      const response = await fetch(`${baseUrl}/${resource}/${id}`, {
+        method: 'DELETE',
+        headers: buildHeaders(),
+      });
+      const data = await parseResponse<TData>(response);
+
+      return {
+        data,
+      };
     },
     getMany: async <TData extends BaseRecord = BaseRecord>(
       params: GetManyParams,
@@ -123,16 +192,34 @@ export function dataProvider(apiUrl: string): DataProvider {
       };
     },
     createMany: async () => {
-      throw new Error('CreateMany ainda nao implementado na Fase 1.');
+      throw new Error('CreateMany ainda nao implementado.');
     },
     updateMany: async () => {
-      throw new Error('UpdateMany ainda nao implementado na Fase 1.');
+      throw new Error('UpdateMany ainda nao implementado.');
     },
     deleteMany: async () => {
-      throw new Error('DeleteMany ainda nao implementado na Fase 1.');
+      throw new Error('DeleteMany ainda nao implementado.');
     },
-    custom: async () => {
-      throw new Error('Custom ainda nao implementado na Fase 1.');
+    custom: async <TData extends BaseRecord = BaseRecord>(
+      params: CustomParams,
+    ) => {
+      const url = params.url.startsWith('http')
+        ? params.url
+        : `${baseUrl}${params.url.startsWith('/') ? '' : '/'}${params.url}`;
+      const response = await fetch(url, {
+        method: params.method,
+        headers: buildHeaders(),
+        body:
+          params.method === 'get' || params.payload === undefined
+            ? undefined
+            : JSON.stringify(params.payload),
+        cache: 'no-store',
+      });
+      const data = await parseResponse<TData>(response);
+
+      return {
+        data,
+      };
     },
   };
 }

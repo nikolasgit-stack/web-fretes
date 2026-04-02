@@ -24,6 +24,33 @@ const resources = [
       label: 'Users',
     },
   },
+  {
+    name: 'transportadoras',
+    list: '/transportadoras',
+    create: '/transportadoras/create',
+    edit: '/transportadoras/:id/edit',
+    meta: {
+      label: 'Transportadoras',
+    },
+  },
+  {
+    name: 'centros-distribuicao',
+    list: '/centros-distribuicao',
+    create: '/centros-distribuicao/create',
+    edit: '/centros-distribuicao/:id/edit',
+    meta: {
+      label: 'Centros de Distribuicao',
+    },
+  },
+  {
+    name: 'regras-frete',
+    list: '/regras-frete',
+    create: '/regras-frete/create',
+    edit: '/regras-frete/:id/edit',
+    meta: {
+      label: 'Regras de Frete',
+    },
+  },
 ];
 
 export function RefineProvider({
