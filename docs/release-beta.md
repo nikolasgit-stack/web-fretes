@@ -25,14 +25,14 @@ Publicar a primeira versao beta interna do Web Fretes com:
 
 ### Build local
 
-```powershell
-npm.cmd run build --workspace @sdf/api
+```bash
+npm run build --workspace @sdf/api
 ```
 
 ### Migrations
 
-```powershell
-npm.cmd run migration:run --workspace @sdf/api
+```bash
+npm run migration:run --workspace @sdf/api
 ```
 
 ### Container
@@ -55,8 +55,8 @@ Sugestao de deploy no Cloud Run:
 
 ### Build local
 
-```powershell
-npm.cmd run build --workspace @sdf/web
+```bash
+npm run build --workspace @sdf/web
 ```
 
 ### Deploy no Vercel

@@ -27,8 +27,8 @@
   - `GCS_BUCKET_NAME`
 - executar migrations:
 
-```powershell
-npm.cmd run migration:run --workspace @sdf/api
+```bash
+npm run migration:run --workspace @sdf/api
 ```
 
 ## 3. Frontend
