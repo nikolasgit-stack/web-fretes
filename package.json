@@ -1,0 +1,20 @@
+{
+  "name": "web-fretes",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev --workspace @sdf/api",
+    "dev:web": "npm run dev --workspace @sdf/web",
+    "build": "npm run build --workspace @sdf/api && npm run build --workspace @sdf/web",
+    "lint": "npm run lint --workspace @sdf/api && npm run lint --workspace @sdf/web",
+    "format": "npm run format --workspace @sdf/api && npm run format --workspace @sdf/web"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
