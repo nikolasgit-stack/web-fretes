@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { HttpError, useOne, useUpdate } from '@refinedev/core';
 import { useRouter } from 'next/navigation';
+import { FormShell } from '../../../components/ui/form-shell';
 import { PageHeader } from '../../../components/ui/page-header';
 import { Transportadora, TransportadoraPayload } from '../types';
 import { TransportadorasForm } from './transportadoras-form';
@@ -51,14 +52,38 @@ export function TransportadorasEditPage({
       <PageHeader
         title="Editar transportadora"
         description="Atualize os dados administrativos e operacionais da transportadora."
+        actionLabel="Voltar para lista"
+        actionHref="/transportadoras"
+        eyebrow="Cadastros logísticos"
       />
 
-      <section className="panel form-panel">
-        {isLoading || !record ? (
-          <div className="state-card">
-            <strong>Carregando transportadora...</strong>
-          </div>
-        ) : (
+      {isLoading || !record ? (
+        <section className="state-card">
+          <strong>Carregando transportadora...</strong>
+        </section>
+      ) : (
+        <FormShell
+          description="Revise informações cadastrais, integração e parâmetros usados na operação."
+          metrics={[
+            {
+              label: 'Transportadora',
+              value: record.codigoInterno,
+              helper: record.nome,
+            },
+            {
+              label: 'Integração',
+              value: record.tipoIntegracao.toUpperCase(),
+              helper: record.modalidade ?? 'Modalidade não informada',
+            },
+            {
+              label: 'Status atual',
+              value: record.ativo ? 'Ativa' : 'Inativa',
+              helper: `Origem ${record.estadoOrigem}`,
+              tone: record.ativo ? 'highlight' : 'default',
+            },
+          ]}
+          title="Ajustes da transportadora"
+        >
           <TransportadorasForm
             initialValues={record}
             submitLabel="Salvar alteracoes"
@@ -67,8 +92,8 @@ export function TransportadorasEditPage({
             successMessage={successMessage}
             onSubmit={handleSubmit}
           />
-        )}
-      </section>
+        </FormShell>
+      )}
     </section>
   );
 }

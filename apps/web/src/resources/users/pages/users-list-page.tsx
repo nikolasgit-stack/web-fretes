@@ -1,7 +1,12 @@
 'use client';
 
 import { useList } from '@refinedev/core';
+import { ActionButton } from '../../../components/ui/action-button';
+import { DataTable } from '../../../components/ui/data-table';
+import { MetricCard } from '../../../components/ui/metric-card';
 import { PageHeader } from '../../../components/ui/page-header';
+import { SectionCard } from '../../../components/ui/section-card';
+import { StatusBadge } from '../../../components/ui/status-badge';
 import { User } from '../types';
 
 export function UsersListPage(): React.JSX.Element {
@@ -18,69 +23,68 @@ export function UsersListPage(): React.JSX.Element {
   return (
     <section className="content-stack">
       <PageHeader
-        title="Users"
-        description="Gerencie usuarios administrativos e seus tenants vinculados."
-        actionLabel="Novo user"
+        title="Usuários"
+        description="Gerencie acessos administrativos, tenants vinculados e disponibilidade operacional."
+        actionLabel="Novo usuário"
         actionHref="/users/create"
+        eyebrow="Acesso e governança"
       />
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <span>Total</span>
-          <strong>{data?.total ?? 0}</strong>
-        </div>
-        <div className="stat-card">
-          <span>Ativos</span>
-          <strong>{users.filter((user) => user.ativo).length}</strong>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard helper="Base administrativa cadastrada" label="Total de usuários" value={data?.total ?? 0} />
+        <MetricCard helper="Acessos disponíveis no ambiente" label="Ativos" value={users.filter((user) => user.ativo).length} />
+        <MetricCard helper="Usuários já vinculados a empresas" label="Com tenant" value={users.filter((user) => Boolean(user.tenantId)).length} />
+        <MetricCard helper="Cobertura de contas no admin" label="Tenants com usuários" tone="highlight" value={new Set(users.map((user) => user.tenantId)).size} />
       </div>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h3>Lista de users</h3>
-          <span>{isFetching ? 'Atualizando...' : 'Sincronizado com a API'}</span>
-        </div>
-
-        {isLoading ? (
-          <div className="state-card">
-            <strong>Carregando users...</strong>
+      <SectionCard
+        action={
+          <div className="flex items-center gap-3 text-sm text-[var(--wf-muted)]">
+            <span>{isFetching ? 'Atualizando...' : `${users.length} registro(s)`}</span>
+            <ActionButton href="/users/create" variant="primary">
+              Novo usuário
+            </ActionButton>
           </div>
-        ) : users.length === 0 ? (
-          <div className="state-card">
-            <strong>Nenhum user cadastrado.</strong>
-            <span>Cadastre o primeiro usuario administrativo do tenant.</span>
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>E-mail</th>
-                  <th>Tenant</th>
-                  <th>Status</th>
-                  <th>Criado em</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.nome}</td>
-                    <td>{user.email}</td>
-                    <td>{user.tenant?.nome ?? user.tenantId}</td>
-                    <td>
-                      <span className={user.ativo ? 'badge badge-success' : 'badge'}>
-                        {user.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td>{new Date(user.criadoEm).toLocaleString('pt-BR')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        }
+        description="Lista consolidada de acessos administrativos com tenant associado e status atual."
+        eyebrow="Listagem"
+        title="Base de usuários"
+      >
+        <DataTable
+          columns={[
+            {
+              key: 'nome',
+              header: 'Usuário',
+              render: (user) => (
+                <div>
+                  <strong className="block text-sm font-semibold text-[var(--wf-ink)]">{user.nome}</strong>
+                  <span className="text-sm text-[var(--wf-muted)]">{user.email}</span>
+                </div>
+              ),
+            },
+            {
+              key: 'tenant',
+              header: 'Tenant',
+              render: (user) => user.tenant?.nome ?? user.tenantId,
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              render: (user) => <StatusBadge active={user.ativo} />,
+            },
+            {
+              key: 'criadoEm',
+              header: 'Criado em',
+              render: (user) => new Date(user.criadoEm).toLocaleString('pt-BR'),
+            },
+          ]}
+          data={users}
+          emptyDescription="Cadastre o primeiro usuário administrativo do ambiente."
+          emptyTitle="Nenhum usuário cadastrado."
+          loading={isLoading}
+          loadingLabel="Carregando usuários..."
+        />
+      </SectionCard>
     </section>
   );
 }

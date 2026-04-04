@@ -1,9 +1,13 @@
 'use client';
 
-import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { HttpError, useDelete, useList, useUpdate } from '@refinedev/core';
+import { ActionButton } from '../../../components/ui/action-button';
+import { DataTable } from '../../../components/ui/data-table';
+import { MetricCard } from '../../../components/ui/metric-card';
 import { PageHeader } from '../../../components/ui/page-header';
+import { SectionCard } from '../../../components/ui/section-card';
+import { StatusBadge } from '../../../components/ui/status-badge';
 import { Tenant } from '../../tenants/types';
 import { Transportadora } from '../types';
 
@@ -34,6 +38,8 @@ export function TransportadorasListPage(): React.JSX.Element {
 
   const transportadoras = data?.data ?? [];
   const tenants = tenantsData?.data ?? [];
+  const tenantNameById = Object.fromEntries(tenants.map((tenant) => [tenant.id, tenant.nome]));
+  const manualCount = transportadoras.filter((item) => item.tipoIntegracao === 'manual').length;
 
   async function toggleStatus(record: Transportadora): Promise<void> {
     setFeedback('');
@@ -80,28 +86,58 @@ export function TransportadorasListPage(): React.JSX.Element {
     <section className="content-stack">
       <PageHeader
         title="Transportadoras"
-        description="Cadastre e mantenha as transportadoras operacionais que alimentam o motor de cotacao."
+        description="Gerencie parceiros logísticos, integrações e parâmetros operacionais em uma visão única."
         actionLabel="Nova transportadora"
         actionHref="/transportadoras/create"
+        eyebrow="Cadastros logísticos"
       />
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <span>Total</span>
-          <strong>{data?.total ?? 0}</strong>
-        </div>
-        <div className="stat-card">
-          <span>Ativas</span>
-          <strong>{transportadoras.filter((item) => item.ativo).length}</strong>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          helper="Base atual disponível para cotação"
+          label="Total de transportadoras"
+          value={data?.total ?? 0}
+        />
+        <MetricCard
+          helper="Operando normalmente no tenant"
+          label="Ativas"
+          value={transportadoras.filter((item) => item.ativo).length}
+        />
+        <MetricCard
+          helper="Fluxos mais rápidos para manutenção"
+          label="Integração manual"
+          value={manualCount}
+        />
+        <MetricCard
+          helper="Cobertura configurada por UF origem"
+          label="UFs de origem"
+          tone="highlight"
+          value={new Set(transportadoras.map((item) => item.estadoOrigem)).size}
+        />
       </div>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h3>Filtros</h3>
-          <span>{isFetching ? 'Atualizando...' : 'Sincronizado com a API'}</span>
-        </div>
-
+      <SectionCard
+        action={
+          <>
+            <ActionButton onClick={() => refetch()} variant="subtle">
+              {isFetching ? 'Atualizando...' : 'Atualizar dados'}
+            </ActionButton>
+            <ActionButton
+              onClick={() => {
+                setTenantId('');
+                setNome('');
+                setAtivo('');
+              }}
+              variant="secondary"
+            >
+              Limpar filtros
+            </ActionButton>
+          </>
+        }
+        description="Filtre por tenant, nome ou status para encontrar rapidamente a transportadora certa."
+        eyebrow="Operação"
+        title="Filtros de consulta"
+      >
         <div className="filter-grid">
           <label className="field">
             <span>Tenant</span>
@@ -116,7 +152,11 @@ export function TransportadorasListPage(): React.JSX.Element {
           </label>
           <label className="field">
             <span>Nome</span>
-            <input value={nome} onChange={(event) => setNome(event.target.value)} />
+            <input
+              placeholder="Buscar por nome"
+              value={nome}
+              onChange={(event) => setNome(event.target.value)}
+            />
           </label>
           <label className="field">
             <span>Status</span>
@@ -129,66 +169,97 @@ export function TransportadorasListPage(): React.JSX.Element {
         </div>
 
         {feedback ? <p className="status-inline">{feedback}</p> : null}
-      </section>
+      </SectionCard>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h3>Lista de transportadoras</h3>
-          <span>{transportadoras.length} registro(s)</span>
-        </div>
-
-        {isLoading ? (
-          <div className="state-card">
-            <strong>Carregando transportadoras...</strong>
+      <SectionCard
+        action={
+          <div className="flex items-center gap-3 text-sm text-[var(--wf-muted)]">
+            <span>{transportadoras.length} registro(s)</span>
+            <ActionButton href="/transportadoras/create" variant="primary">
+              Nova transportadora
+            </ActionButton>
           </div>
-        ) : transportadoras.length === 0 ? (
-          <div className="state-card">
-            <strong>Nenhuma transportadora encontrada.</strong>
-            <span>Ajuste os filtros ou crie o primeiro cadastro operacional.</span>
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Codigo</th>
-                  <th>Tenant</th>
-                  <th>Tipo</th>
-                  <th>Status</th>
-                  <th>Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transportadoras.map((record) => (
-                  <tr key={record.id}>
-                    <td>{record.nome}</td>
-                    <td>{record.codigoInterno}</td>
-                    <td>{record.tenantId}</td>
-                    <td>{record.modalidade ?? record.tipoIntegracao}</td>
-                    <td>
-                      <span className={record.ativo ? 'badge badge-success' : 'badge'}>
-                        {record.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="table-actions">
-                        <Link href={`/transportadoras/${record.id}/edit`}>Editar</Link>
-                        <button type="button" onClick={() => toggleStatus(record)}>
-                          {record.ativo ? 'Inativar' : 'Ativar'}
-                        </button>
-                        <button type="button" onClick={() => removeRecord(record)}>
-                          Excluir
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        }
+        description="Visão de cadastro com status, tenant, modalidade e atalhos de manutenção."
+        eyebrow="Listagem"
+        title="Base de transportadoras"
+      >
+        <DataTable
+          columns={[
+            {
+              key: 'nome',
+              header: 'Transportadora',
+              render: (record) => (
+                <div>
+                  <strong className="block text-sm font-semibold text-[var(--wf-ink)]">
+                    {record.nome}
+                  </strong>
+                  <span className="text-sm text-[var(--wf-muted)]">
+                    Código {record.codigoInterno}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: 'tenant',
+              header: 'Tenant',
+              render: (record) => tenantNameById[record.tenantId] ?? record.tenantId,
+            },
+            {
+              key: 'tipo',
+              header: 'Integração',
+              render: (record) => (
+                <div>
+                  <strong className="block text-sm font-medium">
+                    {record.tipoIntegracao.toUpperCase()}
+                  </strong>
+                  <span className="text-sm text-[var(--wf-muted)]">
+                    {record.modalidade ?? 'Modalidade não informada'}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: 'parametros',
+              header: 'Parâmetros',
+              render: (record) => (
+                <div className="space-y-1 text-sm text-[var(--wf-muted)]">
+                  <p>UF origem: {record.estadoOrigem}</p>
+                  <p>Prazo CD: {record.prazoCd} dia(s)</p>
+                </div>
+              ),
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              render: (record) => <StatusBadge active={record.ativo} />,
+            },
+            {
+              key: 'acoes',
+              header: 'Ações',
+              className: 'min-w-[240px]',
+              render: (record) => (
+                <div className="flex flex-wrap gap-2">
+                  <ActionButton href={`/transportadoras/${record.id}/edit`} variant="secondary">
+                    Editar
+                  </ActionButton>
+                  <ActionButton onClick={() => toggleStatus(record)} variant="subtle">
+                    {record.ativo ? 'Inativar' : 'Ativar'}
+                  </ActionButton>
+                  <ActionButton onClick={() => removeRecord(record)} variant="danger">
+                    Excluir
+                  </ActionButton>
+                </div>
+              ),
+            },
+          ]}
+          data={transportadoras}
+          emptyDescription="Ajuste os filtros ou crie o primeiro cadastro operacional para começar."
+          emptyTitle="Nenhuma transportadora encontrada."
+          loading={isLoading}
+          loadingLabel="Carregando transportadoras..."
+        />
+      </SectionCard>
     </section>
   );
 }

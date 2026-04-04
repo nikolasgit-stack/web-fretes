@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { HttpError, useCreate } from '@refinedev/core';
 import { useRouter } from 'next/navigation';
+import { FormShell } from '../../../components/ui/form-shell';
 import { PageHeader } from '../../../components/ui/page-header';
 import { RegraFrete, RegraFretePayload } from '../types';
 import { RegrasFreteForm } from './regras-frete-form';
@@ -37,16 +38,40 @@ export function RegrasFreteCreatePage(): React.JSX.Element {
       <PageHeader
         title="Nova regra de frete"
         description="Cadastre uma regra de negocio para orientar a escolha de opcoes de frete."
+        actionLabel="Voltar para lista"
+        actionHref="/regras-frete"
+        eyebrow="Motor de decisão"
       />
 
-      <section className="panel form-panel">
+      <FormShell
+        description="Defina escopo, prioridade e vínculos operacionais da nova regra."
+        metrics={[
+          {
+            label: 'Escopo',
+            value: 'Decisão',
+            helper: 'Elegibilidade e prioridade',
+          },
+          {
+            label: 'Tipo',
+            value: 'Regra',
+            helper: 'Motor de frete',
+          },
+          {
+            label: 'Status inicial',
+            value: 'Ativa',
+            helper: 'Pode ser alterado no formulário',
+            tone: 'highlight',
+          },
+        ]}
+        title="Configuração da regra"
+      >
         <RegrasFreteForm
           submitLabel="Criar regra"
           isPending={isPending}
           errorMessage={errorMessage}
           onSubmit={handleSubmit}
         />
-      </section>
+      </FormShell>
     </section>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { HttpError, useOne, useUpdate } from '@refinedev/core';
 import { useRouter } from 'next/navigation';
+import { FormShell } from '../../../components/ui/form-shell';
 import { PageHeader } from '../../../components/ui/page-header';
 import { RegraFrete, RegraFretePayload } from '../types';
 import { RegrasFreteForm } from './regras-frete-form';
@@ -49,14 +50,38 @@ export function RegrasFreteEditPage({
       <PageHeader
         title="Editar regra de frete"
         description="Atualize os parametros operacionais e de prioridade da regra."
+        actionLabel="Voltar para lista"
+        actionHref="/regras-frete"
+        eyebrow="Motor de decisão"
       />
 
-      <section className="panel form-panel">
-        {isLoading || !record ? (
-          <div className="state-card">
-            <strong>Carregando regra...</strong>
-          </div>
-        ) : (
+      {isLoading || !record ? (
+        <section className="state-card">
+          <strong>Carregando regra...</strong>
+        </section>
+      ) : (
+        <FormShell
+          description="Revise prioridade, recorte logístico e vínculos usados pelo motor."
+          metrics={[
+            {
+              label: 'Regra',
+              value: record.prioridade,
+              helper: record.nome,
+            },
+            {
+              label: 'Marketplace',
+              value: record.marketplace ?? 'Geral',
+              helper: record.ufDestino ?? 'Todas as UFs',
+            },
+            {
+              label: 'Status atual',
+              value: record.ativo ? 'Ativa' : 'Inativa',
+              helper: record.transportadora?.nome ?? 'Sem transportadora',
+              tone: record.ativo ? 'highlight' : 'default',
+            },
+          ]}
+          title="Ajustes da regra"
+        >
           <RegrasFreteForm
             initialValues={record}
             submitLabel="Salvar alteracoes"
@@ -65,8 +90,8 @@ export function RegrasFreteEditPage({
             successMessage={successMessage}
             onSubmit={handleSubmit}
           />
-        )}
-      </section>
+        </FormShell>
+      )}
     </section>
   );
 }

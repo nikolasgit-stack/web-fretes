@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { HttpError, useOne, useUpdate } from '@refinedev/core';
 import { useRouter } from 'next/navigation';
+import { FormShell } from '../../../components/ui/form-shell';
 import { PageHeader } from '../../../components/ui/page-header';
 import { CentroDistribuicao, CentroDistribuicaoPayload } from '../types';
 import { CentrosDistribuicaoForm } from './centros-distribuicao-form';
@@ -49,14 +50,38 @@ export function CentrosDistribuicaoEditPage({
       <PageHeader
         title="Editar centro de distribuicao"
         description="Atualize os dados administrativos e logistico-operacionais do centro."
+        actionLabel="Voltar para lista"
+        actionHref="/centros-distribuicao"
+        eyebrow="Malha logística"
       />
 
-      <section className="panel form-panel">
-        {isLoading || !record ? (
-          <div className="state-card">
-            <strong>Carregando centro de distribuicao...</strong>
-          </div>
-        ) : (
+      {isLoading || !record ? (
+        <section className="state-card">
+          <strong>Carregando centro de distribuicao...</strong>
+        </section>
+      ) : (
+        <FormShell
+          description="Revise localização, código e disponibilidade do centro na operação."
+          metrics={[
+            {
+              label: 'Centro',
+              value: record.codigoInterno,
+              helper: record.nome,
+            },
+            {
+              label: 'Cobertura',
+              value: record.estado,
+              helper: record.cidade,
+            },
+            {
+              label: 'Status atual',
+              value: record.ativo ? 'Ativo' : 'Inativo',
+              helper: record.cep ?? 'CEP não informado',
+              tone: record.ativo ? 'highlight' : 'default',
+            },
+          ]}
+          title="Ajustes do centro"
+        >
           <CentrosDistribuicaoForm
             initialValues={record}
             submitLabel="Salvar alteracoes"
@@ -65,8 +90,8 @@ export function CentrosDistribuicaoEditPage({
             successMessage={successMessage}
             onSubmit={handleSubmit}
           />
-        )}
-      </section>
+        </FormShell>
+      )}
     </section>
   );
 }

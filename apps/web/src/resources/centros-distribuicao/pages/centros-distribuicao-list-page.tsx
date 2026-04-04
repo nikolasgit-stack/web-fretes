@@ -1,9 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { HttpError, useDelete, useList, useUpdate } from '@refinedev/core';
+import { ActionButton } from '../../../components/ui/action-button';
+import { DataTable } from '../../../components/ui/data-table';
+import { MetricCard } from '../../../components/ui/metric-card';
 import { PageHeader } from '../../../components/ui/page-header';
+import { SectionCard } from '../../../components/ui/section-card';
+import { StatusBadge } from '../../../components/ui/status-badge';
 import { Tenant } from '../../tenants/types';
 import { CentroDistribuicao } from '../types';
 
@@ -30,6 +34,7 @@ export function CentrosDistribuicaoListPage(): React.JSX.Element {
 
   const centros = data?.data ?? [];
   const tenants = tenantsData?.data ?? [];
+  const tenantNameById = Object.fromEntries(tenants.map((tenant) => [tenant.id, tenant.nome]));
 
   async function toggleStatus(record: CentroDistribuicao): Promise<void> {
     try {
@@ -70,28 +75,41 @@ export function CentrosDistribuicaoListPage(): React.JSX.Element {
     <section className="content-stack">
       <PageHeader
         title="Centros de Distribuicao"
-        description="Mantenha os centros de distribuicao que participam da operacao de frete."
+        description="Organize origens logísticas, cobertura regional e disponibilidade operacional dos CDs."
         actionLabel="Novo centro"
         actionHref="/centros-distribuicao/create"
+        eyebrow="Malha logística"
       />
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <span>Total</span>
-          <strong>{data?.total ?? 0}</strong>
-        </div>
-        <div className="stat-card">
-          <span>Ativos</span>
-          <strong>{centros.filter((item) => item.ativo).length}</strong>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard helper="Origens disponíveis no ambiente" label="Total de centros" value={data?.total ?? 0} />
+        <MetricCard helper="Unidades liberadas para operação" label="Ativos" value={centros.filter((item) => item.ativo).length} />
+        <MetricCard helper="Cobertura interestadual cadastrada" label="Estados atendidos" value={new Set(centros.map((item) => item.estado)).size} />
+        <MetricCard helper="Distribuição geográfica da malha" label="Cidades únicas" tone="highlight" value={new Set(centros.map((item) => item.cidade)).size} />
       </div>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h3>Filtros</h3>
-          <span>{isFetching ? 'Atualizando...' : 'Sincronizado com a API'}</span>
-        </div>
-
+      <SectionCard
+        action={
+          <>
+            <ActionButton onClick={() => refetch()} variant="subtle">
+              {isFetching ? 'Atualizando...' : 'Atualizar dados'}
+            </ActionButton>
+            <ActionButton
+              onClick={() => {
+                setTenantId('');
+                setNome('');
+                setAtivo('');
+              }}
+              variant="secondary"
+            >
+              Limpar filtros
+            </ActionButton>
+          </>
+        }
+        description="Use os filtros para localizar unidades por tenant, nome e disponibilidade."
+        eyebrow="Operação"
+        title="Filtros de consulta"
+      >
         <div className="filter-grid">
           <label className="field">
             <span>Tenant</span>
@@ -106,7 +124,11 @@ export function CentrosDistribuicaoListPage(): React.JSX.Element {
           </label>
           <label className="field">
             <span>Nome</span>
-            <input value={nome} onChange={(event) => setNome(event.target.value)} />
+            <input
+              placeholder="Buscar por nome"
+              value={nome}
+              onChange={(event) => setNome(event.target.value)}
+            />
           </label>
           <label className="field">
             <span>Status</span>
@@ -119,66 +141,91 @@ export function CentrosDistribuicaoListPage(): React.JSX.Element {
         </div>
 
         {feedback ? <p className="status-inline">{feedback}</p> : null}
-      </section>
+      </SectionCard>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h3>Lista de centros</h3>
-          <span>{centros.length} registro(s)</span>
-        </div>
-
-        {isLoading ? (
-          <div className="state-card">
-            <strong>Carregando centros de distribuicao...</strong>
+      <SectionCard
+        action={
+          <div className="flex items-center gap-3 text-sm text-[var(--wf-muted)]">
+            <span>{centros.length} registro(s)</span>
+            <ActionButton href="/centros-distribuicao/create" variant="primary">
+              Novo centro
+            </ActionButton>
           </div>
-        ) : centros.length === 0 ? (
-          <div className="state-card">
-            <strong>Nenhum centro cadastrado.</strong>
-            <span>Crie o primeiro centro de distribuicao para o tenant.</span>
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Codigo</th>
-                  <th>Cidade</th>
-                  <th>Estado</th>
-                  <th>Status</th>
-                  <th>Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {centros.map((record) => (
-                  <tr key={record.id}>
-                    <td>{record.nome}</td>
-                    <td>{record.codigoInterno}</td>
-                    <td>{record.cidade}</td>
-                    <td>{record.estado}</td>
-                    <td>
-                      <span className={record.ativo ? 'badge badge-success' : 'badge'}>
-                        {record.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="table-actions">
-                        <Link href={`/centros-distribuicao/${record.id}/edit`}>Editar</Link>
-                        <button type="button" onClick={() => toggleStatus(record)}>
-                          {record.ativo ? 'Inativar' : 'Ativar'}
-                        </button>
-                        <button type="button" onClick={() => removeRecord(record)}>
-                          Excluir
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        }
+        description="Listagem operacional com localização, tenant e disponibilidade do centro de distribuição."
+        eyebrow="Listagem"
+        title="Base de centros"
+      >
+        <DataTable
+          columns={[
+            {
+              key: 'nome',
+              header: 'Centro',
+              render: (record) => (
+                <div>
+                  <strong className="block text-sm font-semibold text-[var(--wf-ink)]">
+                    {record.nome}
+                  </strong>
+                  <span className="text-sm text-[var(--wf-muted)]">
+                    Código {record.codigoInterno}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: 'localizacao',
+              header: 'Localização',
+              render: (record) => (
+                <div>
+                  <strong className="block text-sm font-medium">{record.cidade}</strong>
+                  <span className="text-sm text-[var(--wf-muted)]">
+                    {record.estado}
+                    {record.cep ? ` • CEP ${record.cep}` : ''}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: 'tenant',
+              header: 'Tenant',
+              render: (record) => tenantNameById[record.tenantId] ?? record.tenantId,
+            },
+            {
+              key: 'endereco',
+              header: 'Endereço',
+              render: (record) => record.endereco || 'Endereço não informado',
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              render: (record) => <StatusBadge active={record.ativo} />,
+            },
+            {
+              key: 'acoes',
+              header: 'Ações',
+              className: 'min-w-[240px]',
+              render: (record) => (
+                <div className="flex flex-wrap gap-2">
+                  <ActionButton href={`/centros-distribuicao/${record.id}/edit`} variant="secondary">
+                    Editar
+                  </ActionButton>
+                  <ActionButton onClick={() => toggleStatus(record)} variant="subtle">
+                    {record.ativo ? 'Inativar' : 'Ativar'}
+                  </ActionButton>
+                  <ActionButton onClick={() => removeRecord(record)} variant="danger">
+                    Excluir
+                  </ActionButton>
+                </div>
+              ),
+            },
+          ]}
+          data={centros}
+          emptyDescription="Crie o primeiro centro de distribuição para começar a operar o tenant."
+          emptyTitle="Nenhum centro cadastrado."
+          loading={isLoading}
+          loadingLabel="Carregando centros de distribuição..."
+        />
+      </SectionCard>
     </section>
   );
 }

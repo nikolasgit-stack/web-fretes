@@ -1,9 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { HttpError, useDelete, useList, useUpdate } from '@refinedev/core';
+import { ActionButton } from '../../../components/ui/action-button';
+import { DataTable } from '../../../components/ui/data-table';
+import { MetricCard } from '../../../components/ui/metric-card';
 import { PageHeader } from '../../../components/ui/page-header';
+import { SectionCard } from '../../../components/ui/section-card';
+import { StatusBadge } from '../../../components/ui/status-badge';
 import { RegraFrete } from '../types';
 
 export function RegrasFreteListPage(): React.JSX.Element {
@@ -61,32 +65,49 @@ export function RegrasFreteListPage(): React.JSX.Element {
     <section className="content-stack">
       <PageHeader
         title="Regras de Frete"
-        description="Mantenha as regras que determinam elegibilidade e prioridade no motor de cotacao."
+        description="Controle elegibilidade, prioridade e recortes logísticos usados pelo motor de decisão."
         actionLabel="Nova regra"
         actionHref="/regras-frete/create"
+        eyebrow="Motor de decisão"
       />
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <span>Total</span>
-          <strong>{data?.total ?? 0}</strong>
-        </div>
-        <div className="stat-card">
-          <span>Ativas</span>
-          <strong>{regras.filter((item) => item.ativo).length}</strong>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard helper="Regras disponíveis no tenant" label="Total de regras" value={data?.total ?? 0} />
+        <MetricCard helper="Regras já consideradas pelo motor" label="Ativas" value={regras.filter((item) => item.ativo).length} />
+        <MetricCard helper="Abrangência geográfica parametrizada" label="UFs cobertas" value={new Set(regras.map((item) => item.ufDestino).filter(Boolean)).size} />
+        <MetricCard helper="Fluxos com marketplace específico" label="Com marketplace" tone="highlight" value={regras.filter((item) => Boolean(item.marketplace)).length} />
       </div>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h3>Filtros</h3>
-          <span>{isFetching ? 'Atualizando...' : 'Sincronizado com a API'}</span>
-        </div>
-
+      <SectionCard
+        action={
+          <>
+            <ActionButton onClick={() => refetch()} variant="subtle">
+              {isFetching ? 'Atualizando...' : 'Atualizar dados'}
+            </ActionButton>
+            <ActionButton
+              onClick={() => {
+                setMarketplace('');
+                setUfDestino('');
+                setAtivo('');
+              }}
+              variant="secondary"
+            >
+              Limpar filtros
+            </ActionButton>
+          </>
+        }
+        description="Refine a busca por marketplace, UF de destino ou status da regra operacional."
+        eyebrow="Operação"
+        title="Filtros de consulta"
+      >
         <div className="filter-grid">
           <label className="field">
             <span>Marketplace</span>
-            <input value={marketplace} onChange={(event) => setMarketplace(event.target.value)} />
+            <input
+              placeholder="Buscar marketplace"
+              value={marketplace}
+              onChange={(event) => setMarketplace(event.target.value)}
+            />
           </label>
           <label className="field">
             <span>UF destino</span>
@@ -107,68 +128,103 @@ export function RegrasFreteListPage(): React.JSX.Element {
         </div>
 
         {feedback ? <p className="status-inline">{feedback}</p> : null}
-      </section>
+      </SectionCard>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h3>Lista de regras</h3>
-          <span>{regras.length} registro(s)</span>
-        </div>
-
-        {isLoading ? (
-          <div className="state-card">
-            <strong>Carregando regras...</strong>
+      <SectionCard
+        action={
+          <div className="flex items-center gap-3 text-sm text-[var(--wf-muted)]">
+            <span>{regras.length} registro(s)</span>
+            <ActionButton href="/regras-frete/create" variant="primary">
+              Nova regra
+            </ActionButton>
           </div>
-        ) : regras.length === 0 ? (
-          <div className="state-card">
-            <strong>Nenhuma regra cadastrada.</strong>
-            <span>Crie a primeira regra operacional do tenant.</span>
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Marketplace</th>
-                  <th>Transportadora</th>
-                  <th>Centro</th>
-                  <th>Prioridade</th>
-                  <th>Status</th>
-                  <th>Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {regras.map((record) => (
-                  <tr key={record.id}>
-                    <td>{record.nome}</td>
-                    <td>{record.marketplace ?? '-'}</td>
-                    <td>{record.transportadora?.nome ?? record.transportadoraId ?? '-'}</td>
-                    <td>{record.centroDistribuicao?.nome ?? record.centroDistribuicaoId ?? '-'}</td>
-                    <td>{record.prioridade}</td>
-                    <td>
-                      <span className={record.ativo ? 'badge badge-success' : 'badge'}>
-                        {record.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="table-actions">
-                        <Link href={`/regras-frete/${record.id}/edit`}>Editar</Link>
-                        <button type="button" onClick={() => toggleStatus(record)}>
-                          {record.ativo ? 'Inativar' : 'Ativar'}
-                        </button>
-                        <button type="button" onClick={() => removeRecord(record)}>
-                          Excluir
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        }
+        description="Listagem com prioridade, escopo logístico e ações de manutenção do motor de frete."
+        eyebrow="Listagem"
+        title="Base de regras"
+      >
+        <DataTable
+          columns={[
+            {
+              key: 'nome',
+              header: 'Regra',
+              render: (record) => (
+                <div>
+                  <strong className="block text-sm font-semibold text-[var(--wf-ink)]">
+                    {record.nome}
+                  </strong>
+                  <span className="text-sm text-[var(--wf-muted)]">
+                    {record.marketplace ?? 'Marketplace geral'}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: 'escopo',
+              header: 'Escopo',
+              render: (record) => (
+                <div className="space-y-1 text-sm text-[var(--wf-muted)]">
+                  <p>UF destino: {record.ufDestino ?? 'Todos'}</p>
+                  <p>
+                    CEP: {record.cepInicial ?? '0'} até {record.cepFinal ?? 'final aberto'}
+                  </p>
+                </div>
+              ),
+            },
+            {
+              key: 'vinculos',
+              header: 'Vínculos',
+              render: (record) => (
+                <div className="space-y-1">
+                  <p className="text-sm text-[var(--wf-ink)]">
+                    {record.transportadora?.nome ?? record.transportadoraId ?? '-'}
+                  </p>
+                  <p className="text-sm text-[var(--wf-muted)]">
+                    {record.centroDistribuicao?.nome ?? record.centroDistribuicaoId ?? '-'}
+                  </p>
+                </div>
+              ),
+            },
+            {
+              key: 'prioridade',
+              header: 'Prioridade',
+              render: (record) => (
+                <span className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-2xl bg-[var(--wf-surface-alt)] px-3 text-sm font-semibold text-[var(--wf-ink)]">
+                  {record.prioridade}
+                </span>
+              ),
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              render: (record) => <StatusBadge active={record.ativo} />,
+            },
+            {
+              key: 'acoes',
+              header: 'Ações',
+              className: 'min-w-[240px]',
+              render: (record) => (
+                <div className="flex flex-wrap gap-2">
+                  <ActionButton href={`/regras-frete/${record.id}/edit`} variant="secondary">
+                    Editar
+                  </ActionButton>
+                  <ActionButton onClick={() => toggleStatus(record)} variant="subtle">
+                    {record.ativo ? 'Inativar' : 'Ativar'}
+                  </ActionButton>
+                  <ActionButton onClick={() => removeRecord(record)} variant="danger">
+                    Excluir
+                  </ActionButton>
+                </div>
+              ),
+            },
+          ]}
+          data={regras}
+          emptyDescription="Crie a primeira regra operacional para alimentar o motor de cotação."
+          emptyTitle="Nenhuma regra cadastrada."
+          loading={isLoading}
+          loadingLabel="Carregando regras de frete..."
+        />
+      </SectionCard>
     </section>
   );
 }
