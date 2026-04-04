@@ -12,6 +12,7 @@ export interface AppConfig {
   };
   storage: {
     bucketName: string;
+    basePath: string;
   };
 }
 
@@ -30,6 +31,7 @@ export const appConfig = (): { app: AppConfig } => ({
     },
     storage: {
       bucketName: process.env.GCS_BUCKET_NAME ?? '',
+      basePath: process.env.LOCAL_STORAGE_PATH ?? 'storage',
     },
   },
 });

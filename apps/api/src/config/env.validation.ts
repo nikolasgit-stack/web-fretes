@@ -42,6 +42,10 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   GCS_BUCKET_NAME?: string;
+
+  @IsOptional()
+  @IsString()
+  LOCAL_STORAGE_PATH?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
