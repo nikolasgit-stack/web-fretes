@@ -69,6 +69,8 @@ interface ParsedRangeRow {
   sheet: string;
   rowNumber: number;
   metodoExternoId: string | null;
+  cepOrigemInicial: string | null;
+  cepOrigemFinal: string | null;
   centroDistribuicaoId: string | null;
   nomeOrigem: string | null;
   uf: string | null;
@@ -109,6 +111,23 @@ interface ParsedFeeRow {
 interface HeaderMatchResult {
   rowIndex: number;
   columnByKey: Record<string, number>;
+}
+
+interface InlineFeeDefinition {
+  columnIndex: number;
+  tipoTaxa: string;
+  field:
+    | 'minimo'
+    | 'maximo'
+    | 'percentual'
+    | 'valorFixo'
+    | 'faixaPesoKg'
+    | 'variacaoInicial'
+    | 'variacaoFinal'
+    | 'baseVariacao'
+    | 'valorVariacao'
+    | 'somaComPrimeiroValor'
+    | 'modoCobrancaVariacao';
 }
 
 export interface FreightTableValidationResult {
@@ -266,11 +285,10 @@ export class FreightTableImportValidationService {
     const detectedModel = this.detectModel(sheets, dto.tipoTabela, issues);
     const generalSettings = this.parseGeneralSettings(sheets, issues);
     const origins =
-      detectedModel === FreightTableModelType.INTELIPOST_MULTI_ORIGINS
+      detectedModel === FreightTableModelType.WEB_FRETES_MULTI_ORIGINS
         ? this.parseOrigins(sheets, issues)
         : [];
-    const ranges = this.parseRanges(sheets, issues);
-    const fees = this.parseFees(sheets, issues);
+    const { ranges, fees } = this.parseRanges(sheets, issues);
 
     this.validateCrossRules({
       issues,
@@ -338,12 +356,17 @@ export class FreightTableImportValidationService {
     hintedType: FreightTableModelType | undefined,
     issues: FreightTableValidationIssue[],
   ): FreightTableModelType {
-    const hasOriginHeaders = sheets.some(
-      (sheet) => this.findHeaderRow(sheet.rows, ORIGIN_HEADER_ALIASES) !== null,
+    const hasOriginHeaders = this.getOperationalSheets(sheets).some(
+      (sheet) =>
+        this.findHeaderRow(sheet.rows, ORIGIN_HEADER_ALIASES, [
+          'cepOrigemInicial',
+          'cepOrigemFinal',
+          'metodoExternoId',
+        ]) !== null,
     );
     const detected = hasOriginHeaders
-      ? FreightTableModelType.INTELIPOST_MULTI_ORIGINS
-      : FreightTableModelType.INTELIPOST_STANDARD;
+      ? FreightTableModelType.WEB_FRETES_MULTI_ORIGINS
+      : FreightTableModelType.WEB_FRETES_STANDARD;
 
     if (hintedType && hintedType !== detected) {
       issues.push({
@@ -373,7 +396,7 @@ export class FreightTableImportValidationService {
     };
 
     for (const [field, aliases] of Object.entries(GENERAL_SETTING_ALIASES)) {
-      const match = this.findLabelValue(sheets, aliases);
+      const match = this.findLabelValue(this.getOperationalSheets(sheets), aliases);
       if (!match) {
         continue;
       }
@@ -414,11 +437,6 @@ export class FreightTableImportValidationService {
       result[field as keyof ParsedGeneralSettings] = numericValue as never;
     }
 
-    if (!result.nomeTabela) {
-      const titleCell = this.findWorkbookTitleCell(sheets);
-      result.nomeTabela = titleCell;
-    }
-
     return result;
   }
 
@@ -427,9 +445,14 @@ export class FreightTableImportValidationService {
     issues: FreightTableValidationIssue[],
   ): ParsedOriginRow[] {
     const origins: ParsedOriginRow[] = [];
+    const seenOrigins = new Set<string>();
 
-    for (const sheet of sheets) {
-      const header = this.findHeaderRow(sheet.rows, ORIGIN_HEADER_ALIASES);
+    for (const sheet of this.getOperationalSheets(sheets)) {
+      const header = this.findHeaderRow(sheet.rows, ORIGIN_HEADER_ALIASES, [
+        'cepOrigemInicial',
+        'cepOrigemFinal',
+        'metodoExternoId',
+      ]);
 
       if (!header) {
         continue;
@@ -438,13 +461,20 @@ export class FreightTableImportValidationService {
       for (let rowIndex = header.rowIndex + 1; rowIndex < sheet.rows.length; rowIndex += 1) {
         const row = sheet.rows[rowIndex];
 
-        if (this.isRowBlank(row)) {
-          break;
+        if (!this.hasOriginRowData(row, header)) {
+          continue;
         }
 
         const cepOrigemInicial = this.getCell(row, header.columnByKey.cepOrigemInicial);
         const cepOrigemFinal = this.getCell(row, header.columnByKey.cepOrigemFinal);
         const metodoExternoId = this.getCell(row, header.columnByKey.metodoExternoId);
+        const originKey = `${cepOrigemInicial}|${cepOrigemFinal}|${metodoExternoId}`;
+
+        if (seenOrigins.has(originKey)) {
+          continue;
+        }
+
+        seenOrigins.add(originKey);
 
         origins.push({
           sheet: sheet.name,
@@ -501,11 +531,12 @@ export class FreightTableImportValidationService {
   private parseRanges(
     sheets: WorkbookSheetData[],
     issues: FreightTableValidationIssue[],
-  ): ParsedRangeRow[] {
+  ): { ranges: ParsedRangeRow[]; fees: ParsedFeeRow[] } {
     const ranges: ParsedRangeRow[] = [];
+    const fees: ParsedFeeRow[] = [];
     let parsedAnyRange = false;
 
-    for (const sheet of sheets) {
+    for (const sheet of this.getOperationalSheets(sheets)) {
       const header = this.findHeaderRow(sheet.rows, RANGE_HEADER_ALIASES, ['cepInicial', 'cepFinal', 'prazo']);
 
       if (!header) {
@@ -515,44 +546,53 @@ export class FreightTableImportValidationService {
       parsedAnyRange = true;
       const weightColumns = this.extractWeightColumns(sheet.rows[header.rowIndex]);
       const comparisonColumns = this.extractComparisonColumns(header.columnByKey);
-
-      if (weightColumns.length > 0 && Object.keys(comparisonColumns).length > 0) {
-        issues.push({
-          code: 'TARIFF_MODE_CONFLICT',
-          message:
-            'A mesma tabela nao pode misturar frete por peso e frete por comparacao no mesmo bloco.',
-          severity: 'error',
-          sheet: sheet.name,
-          row: header.rowIndex + 1,
-        });
-      }
-
-      if (weightColumns.length === 0 && Object.keys(comparisonColumns).length === 0) {
-        issues.push({
-          code: 'TARIFF_MODE_MISSING',
-          message:
-            'Nao foi possivel identificar colunas de tarifa por peso nem colunas de comparacao.',
-          severity: 'error',
-          sheet: sheet.name,
-          row: header.rowIndex + 1,
-        });
-      }
+      const inlineFeeDefinitions = this.extractInlineFeeDefinitions(
+        sheet.rows[header.rowIndex],
+        header,
+        weightColumns,
+        comparisonColumns,
+      );
 
       for (let rowIndex = header.rowIndex + 1; rowIndex < sheet.rows.length; rowIndex += 1) {
         const row = sheet.rows[rowIndex];
 
-        if (this.isRowBlank(row)) {
-          break;
+        if (!this.hasRangeRowData(row, header)) {
+          continue;
         }
 
         const cepInicial = this.getCell(row, header.columnByKey.cepInicial);
         const cepFinal = this.getCell(row, header.columnByKey.cepFinal);
         const prazoRaw = this.getCell(row, header.columnByKey.prazo);
+        const rowWeightPrices = weightColumns
+          .map((column, index) => ({
+            pesoFaixa: column.weight,
+            valor: this.parseNumber(this.getCell(row, column.index)) ?? Number.NaN,
+            ordem: index + 1,
+          }))
+          .filter((item) => !Number.isNaN(item.valor));
+        const comparisonPrice = {
+          valorPorKg: this.parseNumber(
+            this.getOptionalCell(row, comparisonColumns.valorPorKg),
+          ),
+          percentualSobreNF: this.parseNumber(
+            this.getOptionalCell(row, comparisonColumns.percentualSobreNF),
+          ),
+          freteMinimo: this.parseNumber(
+            this.getOptionalCell(row, comparisonColumns.valorMinimoFrete),
+          ),
+        };
+        const hasWeightMode = rowWeightPrices.length > 0;
+        const hasComparisonMode =
+          comparisonPrice.valorPorKg !== null ||
+          comparisonPrice.percentualSobreNF !== null ||
+          comparisonPrice.freteMinimo !== null;
 
         const parsedRange: ParsedRangeRow = {
           sheet: sheet.name,
           rowNumber: rowIndex + 1,
           metodoExternoId: this.getOptionalCell(row, header.columnByKey.metodoExternoId),
+          cepOrigemInicial: this.getOptionalCell(row, header.columnByKey.cepOrigemInicial),
+          cepOrigemFinal: this.getOptionalCell(row, header.columnByKey.cepOrigemFinal),
           centroDistribuicaoId: this.getOptionalCell(row, header.columnByKey.centroDistribuicaoId),
           nomeOrigem: this.getOptionalCell(row, header.columnByKey.nomeOrigem),
           uf: this.getOptionalCell(row, header.columnByKey.uf),
@@ -563,12 +603,11 @@ export class FreightTableImportValidationService {
           valorMinimoFrete: this.parseNumber(
             this.getOptionalCell(row, header.columnByKey.valorMinimoFrete),
           ),
-          modoTarifa:
-            weightColumns.length > 0
-              ? FreightTableTariffMode.WEIGHT
-              : FreightTableTariffMode.COMPARISON,
-          weightPrices: [],
-          comparisonPrice: null,
+          modoTarifa: hasWeightMode
+            ? FreightTableTariffMode.WEIGHT
+            : FreightTableTariffMode.COMPARISON,
+          weightPrices: rowWeightPrices,
+          comparisonPrice: hasComparisonMode ? comparisonPrice : null,
         };
 
         this.validateNumericCep(cepInicial, sheet.name, rowIndex + 1, 'cepInicial', issues);
@@ -596,56 +635,31 @@ export class FreightTableImportValidationService {
           });
         }
 
-        if (weightColumns.length > 0) {
-          parsedRange.weightPrices = weightColumns
-            .map((column, index) => ({
-              pesoFaixa: column.weight,
-              valor: this.parseNumber(this.getCell(row, column.index)) ?? Number.NaN,
-              ordem: index + 1,
-            }))
-            .filter((item) => !Number.isNaN(item.valor));
+        if (hasWeightMode && hasComparisonMode) {
+          issues.push({
+            code: 'TARIFF_MODE_CONFLICT',
+            message:
+              'A linha nao pode misturar frete por peso e frete por comparacao ao mesmo tempo.',
+            severity: 'error',
+            sheet: sheet.name,
+            row: rowIndex + 1,
+          });
+        } else if (!hasWeightMode && !hasComparisonMode) {
+          issues.push({
+            code: 'TARIFF_MODE_MISSING',
+            message:
+              'Informe frete por peso ou frete por comparacao na linha.',
+            severity: 'error',
+            sheet: sheet.name,
+            row: rowIndex + 1,
+          });
+        }
 
-          if (parsedRange.weightPrices.length === 0) {
+        for (const price of parsedRange.weightPrices) {
+          if (price.valor < 0) {
             issues.push({
-              code: 'WEIGHT_PRICE_REQUIRED',
-              message: 'Ao menos uma tarifa por faixa de peso deve ser informada.',
-              severity: 'error',
-              sheet: sheet.name,
-              row: rowIndex + 1,
-            });
-          }
-
-          for (const price of parsedRange.weightPrices) {
-            if (price.valor < 0) {
-              issues.push({
-                code: 'WEIGHT_PRICE_NEGATIVE',
-                message: 'Valores de tarifa por peso nao podem ser negativos.',
-                severity: 'error',
-                sheet: sheet.name,
-                row: rowIndex + 1,
-              });
-            }
-          }
-        } else {
-          parsedRange.comparisonPrice = {
-            valorPorKg: this.parseNumber(this.getOptionalCell(row, comparisonColumns.valorPorKg)),
-            percentualSobreNF: this.parseNumber(
-              this.getOptionalCell(row, comparisonColumns.percentualSobreNF),
-            ),
-            freteMinimo: this.parseNumber(
-              this.getOptionalCell(row, comparisonColumns.valorMinimoFrete),
-            ),
-          };
-
-          if (
-            !parsedRange.comparisonPrice.valorPorKg &&
-            !parsedRange.comparisonPrice.percentualSobreNF &&
-            !parsedRange.comparisonPrice.freteMinimo
-          ) {
-            issues.push({
-              code: 'COMPARISON_PRICE_REQUIRED',
-              message:
-                'No modo comparacao, informe valor por kg, percentual sobre NF ou frete minimo.',
+              code: 'WEIGHT_PRICE_NEGATIVE',
+              message: 'Valores de tarifa por peso nao podem ser negativos.',
               severity: 'error',
               sheet: sheet.name,
               row: rowIndex + 1,
@@ -654,6 +668,15 @@ export class FreightTableImportValidationService {
         }
 
         ranges.push(parsedRange);
+        fees.push(
+          ...this.buildInlineFeesForRow(
+            inlineFeeDefinitions,
+            row,
+            sheet.name,
+            rowIndex + 1,
+            parsedRange,
+          ),
+        );
       }
     }
 
@@ -666,107 +689,10 @@ export class FreightTableImportValidationService {
       });
     }
 
-    return ranges;
-  }
-
-  private parseFees(
-    sheets: WorkbookSheetData[],
-    issues: FreightTableValidationIssue[],
-  ): ParsedFeeRow[] {
-    const fees: ParsedFeeRow[] = [];
-
-    for (const sheet of sheets) {
-      const header = this.findHeaderRow(sheet.rows, FEE_HEADER_ALIASES, ['tipoTaxa']);
-
-      if (!header) {
-        continue;
-      }
-
-      for (let rowIndex = header.rowIndex + 1; rowIndex < sheet.rows.length; rowIndex += 1) {
-        const row = sheet.rows[rowIndex];
-
-        if (this.isRowBlank(row)) {
-          break;
-        }
-
-        const fee: ParsedFeeRow = {
-          sheet: sheet.name,
-          rowNumber: rowIndex + 1,
-          metodoExternoId: this.getOptionalCell(row, header.columnByKey.metodoExternoId),
-          centroDistribuicaoId: this.getOptionalCell(row, header.columnByKey.centroDistribuicaoId),
-          nomeOrigem: this.getOptionalCell(row, header.columnByKey.nomeOrigem),
-          uf: this.getOptionalCell(row, header.columnByKey.uf),
-          cidade: this.getOptionalCell(row, header.columnByKey.cidade),
-          cepInicial: this.getOptionalCell(row, header.columnByKey.cepInicial),
-          cepFinal: this.getOptionalCell(row, header.columnByKey.cepFinal),
-          tipoTaxa: this.getCell(row, header.columnByKey.tipoTaxa),
-          minimo: this.parseNumber(this.getOptionalCell(row, header.columnByKey.minimo)),
-          maximo: this.parseNumber(this.getOptionalCell(row, header.columnByKey.maximo)),
-          percentual: this.parseNumber(this.getOptionalCell(row, header.columnByKey.percentual)),
-          valorFixo: this.parseNumber(this.getOptionalCell(row, header.columnByKey.valorFixo)),
-          faixaPesoKg: this.parseNumber(this.getOptionalCell(row, header.columnByKey.faixaPesoKg)),
-          variacaoInicial: this.parseNumber(
-            this.getOptionalCell(row, header.columnByKey.variacaoInicial),
-          ),
-          variacaoFinal: this.parseNumber(
-            this.getOptionalCell(row, header.columnByKey.variacaoFinal),
-          ),
-          baseVariacao: this.getOptionalCell(row, header.columnByKey.baseVariacao),
-          valorVariacao: this.parseNumber(
-            this.getOptionalCell(row, header.columnByKey.valorVariacao),
-          ),
-          somaComPrimeiroValor: this.parseNullableBoolean(
-            this.getOptionalCell(row, header.columnByKey.somaComPrimeiroValor),
-          ),
-          modoCobrancaVariacao: this.getOptionalCell(
-            row,
-            header.columnByKey.modoCobrancaVariacao,
-          ),
-        };
-
-        if (!fee.tipoTaxa) {
-          issues.push({
-            code: 'FEE_TYPE_REQUIRED',
-            message: 'Tipo de taxa e obrigatorio.',
-            severity: 'error',
-            sheet: sheet.name,
-            row: rowIndex + 1,
-          });
-        }
-
-        if (
-          fee.minimo !== null &&
-          fee.maximo !== null &&
-          fee.minimo > fee.maximo
-        ) {
-          issues.push({
-            code: 'FEE_MIN_MAX_INVALID',
-            message: 'Valor minimo da taxa nao pode ser maior que o valor maximo.',
-            severity: 'error',
-            sheet: sheet.name,
-            row: rowIndex + 1,
-          });
-        }
-
-        if (
-          fee.variacaoInicial !== null &&
-          fee.variacaoFinal !== null &&
-          fee.variacaoInicial > fee.variacaoFinal
-        ) {
-          issues.push({
-            code: 'FEE_VARIATION_INVALID',
-            message: 'Variacao inicial nao pode ser maior que a variacao final.',
-            severity: 'error',
-            sheet: sheet.name,
-            row: rowIndex + 1,
-          });
-        }
-
-        fees.push(fee);
-      }
-    }
-
-    return fees;
+    return {
+      ranges,
+      fees: this.consolidateFees(fees, issues),
+    };
   }
 
   private validateCrossRules(input: {
@@ -792,15 +718,23 @@ export class FreightTableImportValidationService {
       });
     }
 
-    if (input.detectedModel === FreightTableModelType.INTELIPOST_MULTI_ORIGINS) {
+    if (input.detectedModel === FreightTableModelType.WEB_FRETES_MULTI_ORIGINS) {
       if (input.origins.length === 0) {
         input.issues.push({
           code: 'MULTI_ORIGINS_REQUIRED',
           message:
-            'O modelo Intelipost Multi Origens exige bloco ou aba com CEP origem inicial/final e ID metodo.',
+            'O modelo Web Fretes Multi Origens exige bloco ou aba com CEP origem inicial/final e ID metodo.',
           severity: 'error',
         });
       }
+    }
+
+    if (input.ranges.length === 0) {
+      input.issues.push({
+        code: 'RANGE_ROW_REQUIRED',
+        message: 'A planilha precisa conter ao menos uma faixa de abrangencia valida.',
+        severity: 'error',
+      });
     }
 
     const invalidWeightHeaders = input.ranges.some((range) => {
@@ -817,6 +751,42 @@ export class FreightTableImportValidationService {
     }
   }
 
+  private getOperationalSheets(sheets: WorkbookSheetData[]): WorkbookSheetData[] {
+    const operationalSheets = sheets.filter(
+      (sheet) => !this.normalizeCell(sheet.name).includes('instruc'),
+    );
+
+    return operationalSheets.length > 0 ? operationalSheets : sheets;
+  }
+
+  private hasRangeRowData(row: string[], header: HeaderMatchResult): boolean {
+    const cepInicial = this.getCell(row, header.columnByKey.cepInicial);
+    const cepFinal = this.getCell(row, header.columnByKey.cepFinal);
+    const prazo = this.getCell(row, header.columnByKey.prazo);
+    const cepOrigemInicial = this.getCell(row, header.columnByKey.cepOrigemInicial);
+    const cepOrigemFinal = this.getCell(row, header.columnByKey.cepOrigemFinal);
+
+    return (
+      /^\d+$/.test(cepInicial) ||
+      /^\d+$/.test(cepFinal) ||
+      this.parseNumber(prazo) !== null ||
+      /^\d+$/.test(cepOrigemInicial) ||
+      /^\d+$/.test(cepOrigemFinal)
+    );
+  }
+
+  private hasOriginRowData(row: string[], header: HeaderMatchResult): boolean {
+    const relevantIndexes = [
+      header.columnByKey.cepOrigemInicial,
+      header.columnByKey.cepOrigemFinal,
+      header.columnByKey.metodoExternoId,
+      header.columnByKey.nomeOrigem,
+      header.columnByKey.centroDistribuicaoId,
+    ].filter((value): value is number => value !== undefined);
+
+    return relevantIndexes.some((index) => this.getCell(row, index) !== '');
+  }
+
   private findLabelValue(
     sheets: WorkbookSheetData[],
     aliases: string[],
@@ -828,13 +798,19 @@ export class FreightTableImportValidationService {
         for (let columnIndex = 0; columnIndex < row.length; columnIndex += 1) {
           const normalized = this.normalizeCell(row[columnIndex]);
 
-          if (!aliases.some((alias) => normalized.includes(alias))) {
+          if (
+            !aliases.some(
+              (alias) => normalized === alias || normalized.startsWith(alias),
+            )
+          ) {
             continue;
           }
 
-          const value = row
-            .slice(columnIndex + 1)
-            .find((cell) => `${cell ?? ''}`.trim() !== '');
+          const value =
+            row
+              .slice(columnIndex + 1)
+              .find((cell) => `${cell ?? ''}`.trim() !== '') ??
+            this.findNextValueInColumn(sheet.rows, rowIndex, columnIndex, 1);
 
           if (value !== undefined) {
             return {
@@ -848,6 +824,35 @@ export class FreightTableImportValidationService {
     }
 
     return null;
+  }
+
+  private findNextValueInColumn(
+    rows: string[][],
+    rowIndex: number,
+    columnIndex: number,
+    maxLookahead: number,
+  ): string | undefined {
+    const allSettingAliases = Object.values(GENERAL_SETTING_ALIASES).flat();
+
+    for (let offset = 1; offset <= maxLookahead; offset += 1) {
+      const candidate = rows[rowIndex + offset]?.[columnIndex];
+      const normalizedCandidate = this.normalizeCell(candidate);
+
+      if (
+        `${candidate ?? ''}`.trim() !== '' &&
+        !allSettingAliases.some(
+          (alias) =>
+            normalizedCandidate === alias || normalizedCandidate.startsWith(alias),
+        ) &&
+        !/limite|cubagem|ceporigem|nometabela|nomedatabela|isencao/.test(
+          normalizedCandidate,
+        )
+      ) {
+        return candidate;
+      }
+    }
+
+    return undefined;
   }
 
   private findWorkbookTitleCell(sheets: WorkbookSheetData[]): string | null {
@@ -929,6 +934,193 @@ export class FreightTableImportValidationService {
     }
 
     return comparisonColumns;
+  }
+
+  private extractInlineFeeDefinitions(
+    headerRow: string[],
+    header: HeaderMatchResult,
+    weightColumns: Array<{ index: number; weight: number }>,
+    comparisonColumns: Record<string, number>,
+  ): InlineFeeDefinition[] {
+    const reservedColumns = new Set<number>([
+      ...Object.values(header.columnByKey),
+      ...weightColumns.map((item) => item.index),
+      ...Object.values(comparisonColumns),
+    ]);
+
+    const definitions: InlineFeeDefinition[] = [];
+
+    for (let columnIndex = 0; columnIndex < headerRow.length; columnIndex += 1) {
+      if (reservedColumns.has(columnIndex)) {
+        continue;
+      }
+
+      const definition = this.parseInlineFeeDefinition(headerRow[columnIndex], columnIndex);
+      if (definition) {
+        definitions.push(definition);
+      }
+    }
+
+    return definitions;
+  }
+
+  private parseInlineFeeDefinition(
+    headerValue: string,
+    columnIndex: number,
+  ): InlineFeeDefinition | null {
+    const value = `${headerValue ?? ''}`.trim();
+
+    if (!value) {
+      return null;
+    }
+
+    const normalized = this.normalizeCell(value);
+    if (
+      !normalized ||
+      normalized === 'valorexcedente' ||
+      normalized === 'fretevalor' ||
+      normalized === 'valorporkg' ||
+      normalized === 'sobreanf' ||
+      normalized === 'freteminimo'
+    ) {
+      return null;
+    }
+
+    const matchers: Array<{
+      pattern: RegExp;
+      field: InlineFeeDefinition['field'];
+    }> = [
+      { pattern: /^(.*?)\s+M[ÍI]NIMO$/i, field: 'minimo' },
+      { pattern: /^(.*?)\s+M[ÁA]XIMO$/i, field: 'maximo' },
+      { pattern: /^(.*?)\s*\(%\)\s*-\s*DENTRO DA VARIA[ÇC][ÃA]O$/i, field: 'valorVariacao' },
+      { pattern: /^(.*?)\s+FIXO\s*-\s*DENTRO DA VARIA[ÇC][ÃA]O$/i, field: 'valorVariacao' },
+      { pattern: /^FAIXA DE PESO \(KG\) D[AO]\s+(.*?)\s+FIXO(?:\s*-\s*DENTRO DA VARIA[ÇC][ÃA]O)?$/i, field: 'faixaPesoKg' },
+      { pattern: /^VALOR INICIAL DA VARIA[ÇC][ÃA]O D[EO]\s+(.*?)$/i, field: 'variacaoInicial' },
+      { pattern: /^VALOR FINAL DA VARIA[ÇC][ÃA]O D[EO]\s+(.*?)$/i, field: 'variacaoFinal' },
+      { pattern: /^BASE DA VARIA[ÇC][ÃA]O D[EO]\s+(.*?)(?:\s+\(.*)?$/i, field: 'baseVariacao' },
+      { pattern: /^(.*?)\s+DA VARIA[ÇC][ÃA]O SOMA COM PRIMEIRO VALOR\?/i, field: 'somaComPrimeiroValor' },
+      { pattern: /^(.*?)\s+DA VARIA[ÇC][ÃA]O COBRADO SOBRE DIFEREN[ÇC]A OU VALOR COMPLETO\?/i, field: 'modoCobrancaVariacao' },
+      { pattern: /^(.*?)\s*\(%\)(?:\s*-\s*SOBRE A NF)?$/i, field: 'percentual' },
+      { pattern: /^(.*?)\s+FIXO$/i, field: 'valorFixo' },
+    ];
+
+    for (const matcher of matchers) {
+      const match = value.match(matcher.pattern);
+      if (!match) {
+        continue;
+      }
+
+      const tipoTaxa = match[1].trim();
+      if (!tipoTaxa || /^FRETE/i.test(tipoTaxa)) {
+        return null;
+      }
+
+      return {
+        columnIndex,
+        tipoTaxa,
+        field: matcher.field,
+      };
+    }
+
+    return null;
+  }
+
+  private buildInlineFeesForRow(
+    definitions: InlineFeeDefinition[],
+    row: string[],
+    sheet: string,
+    rowNumber: number,
+    range: ParsedRangeRow,
+  ): ParsedFeeRow[] {
+    const feeMap = new Map<string, ParsedFeeRow>();
+
+    for (const definition of definitions) {
+      const rawValue = this.getCell(row, definition.columnIndex);
+      if (rawValue === '') {
+        continue;
+      }
+
+      const key = definition.tipoTaxa.toUpperCase();
+      if (!feeMap.has(key)) {
+        feeMap.set(key, {
+          sheet,
+          rowNumber,
+          metodoExternoId: range.metodoExternoId,
+          centroDistribuicaoId: range.centroDistribuicaoId,
+          nomeOrigem: range.nomeOrigem,
+          uf: range.uf,
+          cidade: range.cidade,
+          cepInicial: range.cepInicial,
+          cepFinal: range.cepFinal,
+          tipoTaxa: definition.tipoTaxa,
+          minimo: null,
+          maximo: null,
+          percentual: null,
+          valorFixo: null,
+          faixaPesoKg: null,
+          variacaoInicial: null,
+          variacaoFinal: null,
+          baseVariacao: null,
+          valorVariacao: null,
+          somaComPrimeiroValor: null,
+          modoCobrancaVariacao: null,
+        });
+      }
+
+      const fee = feeMap.get(key)!;
+
+      switch (definition.field) {
+        case 'baseVariacao':
+        case 'modoCobrancaVariacao':
+          fee[definition.field] = rawValue || null;
+          break;
+        case 'somaComPrimeiroValor':
+          fee.somaComPrimeiroValor = this.parseNullableBoolean(rawValue);
+          break;
+        default:
+          fee[definition.field] = this.parseNumber(rawValue);
+          break;
+      }
+    }
+
+    return Array.from(feeMap.values());
+  }
+
+  private consolidateFees(
+    fees: ParsedFeeRow[],
+    issues: FreightTableValidationIssue[],
+  ): ParsedFeeRow[] {
+    for (const fee of fees) {
+      if (
+        fee.minimo !== null &&
+        fee.maximo !== null &&
+        fee.minimo > fee.maximo
+      ) {
+        issues.push({
+          code: 'FEE_MIN_MAX_INVALID',
+          message: 'Valor minimo da taxa nao pode ser maior que o valor maximo.',
+          severity: 'error',
+          sheet: fee.sheet,
+          row: fee.rowNumber,
+        });
+      }
+
+      if (
+        fee.variacaoInicial !== null &&
+        fee.variacaoFinal !== null &&
+        fee.variacaoInicial > fee.variacaoFinal
+      ) {
+        issues.push({
+          code: 'FEE_VARIATION_INVALID',
+          message: 'Variacao inicial nao pode ser maior que a variacao final.',
+          severity: 'error',
+          sheet: fee.sheet,
+          row: fee.rowNumber,
+        });
+      }
+    }
+
+    return fees;
   }
 
   private parseWeightHeader(value: string): number | null {

@@ -34,7 +34,7 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
 }
 
 function modelLabel(value: FreightTableModelType): string {
-  return value === 'intelipost_multi_origens' ? 'Intelipost Multi Origens' : 'Intelipost Padrao';
+  return value === 'web_fretes_multi_origens' ? 'Web Fretes Multi Origens' : 'Web Fretes Padrao';
 }
 
 function asText(value: unknown): string {
@@ -110,7 +110,7 @@ export function FreightTablesPage(): React.JSX.Element {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<FreightTablePreviewResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const [uploadTipoTabela, setUploadTipoTabela] = useState<FreightTableModelType>('intelipost_padrao');
+  const [uploadTipoTabela, setUploadTipoTabela] = useState<FreightTableModelType>('web_fretes_padrao');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadObservacao, setUploadObservacao] = useState('');
   const [validationResult, setValidationResult] = useState<FreightTableValidationResponse | null>(null);
@@ -168,7 +168,7 @@ export function FreightTablesPage(): React.JSX.Element {
   const metrics = useMemo(() => ({
     total: filteredItems.length,
     ativas: filteredItems.filter((item) => item.ativo).length,
-    multi: filteredItems.filter((item) => item.tipoTabela === 'intelipost_multi_origens').length,
+    multi: filteredItems.filter((item) => item.tipoTabela === 'web_fretes_multi_origens').length,
     erros: filteredItems.filter((item) => (item.resumo?.erros ?? 0) > 0).length,
   }), [filteredItems]);
 
@@ -253,7 +253,7 @@ export function FreightTablesPage(): React.JSX.Element {
     <section className="content-stack">
       <PageHeader
         title="Tabelas de Fretes"
-        description="Faca upload, valide, filtre e visualize as tabelas Intelipost e Intelipost Multi Origens por transportadora."
+        description="Faca upload, valide, filtre e visualize as tabelas Web Fretes Padrao e Web Fretes Multi Origens por transportadora."
         eyebrow="Transportadoras • Arquivos"
       />
 
@@ -312,8 +312,8 @@ export function FreightTablesPage(): React.JSX.Element {
             <span>Tipo</span>
             <select value={tipoFiltro} onChange={(event) => setTipoFiltro(event.target.value)}>
               <option value="">Todos</option>
-              <option value="intelipost_padrao">Intelipost Padrao</option>
-              <option value="intelipost_multi_origens">Intelipost Multi Origens</option>
+              <option value="web_fretes_padrao">Web Fretes Padrao</option>
+              <option value="web_fretes_multi_origens">Web Fretes Multi Origens</option>
             </select>
           </label>
           <label className="field">
@@ -367,8 +367,8 @@ export function FreightTablesPage(): React.JSX.Element {
               <label className="field">
                 <span>Tipo da tabela</span>
                 <select value={uploadTipoTabela} onChange={(event) => setUploadTipoTabela(event.target.value as FreightTableModelType)}>
-                  <option value="intelipost_padrao">Intelipost Padrao</option>
-                  <option value="intelipost_multi_origens">Intelipost Multi Origens</option>
+                  <option value="web_fretes_padrao">Web Fretes Padrao</option>
+                  <option value="web_fretes_multi_origens">Web Fretes Multi Origens</option>
                 </select>
               </label>
               <label className="field">

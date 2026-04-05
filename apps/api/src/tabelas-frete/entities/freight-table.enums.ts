@@ -1,6 +1,6 @@
 export enum FreightTableModelType {
-  INTELIPOST_STANDARD = 'intelipost_padrao',
-  INTELIPOST_MULTI_ORIGINS = 'intelipost_multi_origens',
+  WEB_FRETES_STANDARD = 'web_fretes_padrao',
+  WEB_FRETES_MULTI_ORIGINS = 'web_fretes_multi_origens',
 }
 
 export enum FreightTableUploadStatus {

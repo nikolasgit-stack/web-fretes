@@ -9,6 +9,7 @@ import { AppConfigService } from './app-config.service';
   imports: [
     NestConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env.production',
       load: [appConfig],
       validate: validateEnv,
     }),

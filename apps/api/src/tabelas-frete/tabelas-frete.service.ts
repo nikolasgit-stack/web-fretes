@@ -610,7 +610,7 @@ export class TabelasFreteService {
     }>,
     savedOrigins: Map<string, FreightTableOrigin>,
   ): FreightTableOrigin | null {
-    if (model !== FreightTableModelType.INTELIPOST_MULTI_ORIGINS) {
+    if (model !== FreightTableModelType.WEB_FRETES_MULTI_ORIGINS) {
       return null;
     }
 

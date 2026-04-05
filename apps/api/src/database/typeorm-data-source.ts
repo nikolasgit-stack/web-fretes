@@ -18,6 +18,7 @@ import { Transportadora } from '../transportadoras/entities/transportadora.entit
 import { User } from '../users/entities/user.entity';
 import { InitialSchema1710000000000 } from './migrations/1710000000000-InitialSchema';
 import { FreightTableImportsFoundation1712000000000 } from './migrations/1712000000000-FreightTableImportsFoundation';
+import { RenameFreightTableModelTypesToWebFretes1713000000000 } from './migrations/1713000000000-RenameFreightTableModelTypesToWebFretes';
 import { OperationalCrudFields1711000000000 } from './migrations/1711000000000-OperationalCrudFields';
 
 export default new DataSource({
@@ -56,5 +57,6 @@ export default new DataSource({
     InitialSchema1710000000000,
     OperationalCrudFields1711000000000,
     FreightTableImportsFoundation1712000000000,
+    RenameFreightTableModelTypesToWebFretes1713000000000,
   ],
 });

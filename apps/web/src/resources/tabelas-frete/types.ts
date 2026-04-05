@@ -1,6 +1,6 @@
 export type FreightTableModelType =
-  | 'intelipost_padrao'
-  | 'intelipost_multi_origens';
+  | 'web_fretes_padrao'
+  | 'web_fretes_multi_origens';
 
 export type FreightTableUploadStatus =
   | 'recebido'
