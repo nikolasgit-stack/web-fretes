@@ -9,6 +9,7 @@ import { MetricCard } from '../../../components/ui/metric-card';
 import { PageHeader } from '../../../components/ui/page-header';
 import { SectionCard } from '../../../components/ui/section-card';
 import { StatusBadge } from '../../../components/ui/status-badge';
+import { resolveApiBaseUrl } from '../../../lib/api-base-url';
 import { Transportadora } from '../../transportadoras/types';
 import {
   FreightTableListItem,
@@ -18,7 +19,7 @@ import {
 } from '../types';
 
 function apiUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+  return resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 }
 
 async function parseApiResponse<T>(response: Response): Promise<T> {

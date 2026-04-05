@@ -4,6 +4,7 @@ import { ReactNode, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Refine } from '@refinedev/core';
 import routerProvider from '@refinedev/nextjs-router/app';
+import { resolveApiBaseUrl } from '../lib/api-base-url';
 import { authProvider } from './auth-provider';
 import { dataProvider } from './data-provider';
 
@@ -72,7 +73,7 @@ export function RefineProvider({
       <Refine
         routerProvider={routerProvider}
         authProvider={authProvider}
-        dataProvider={dataProvider(process.env.NEXT_PUBLIC_API_URL ?? '')}
+        dataProvider={dataProvider(resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL))}
         resources={resources}
         options={{
           syncWithLocation: true,

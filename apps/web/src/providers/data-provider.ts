@@ -11,6 +11,7 @@ import {
   UpdateParams,
   CustomParams,
 } from '@refinedev/core';
+import { resolveApiBaseUrl } from '../lib/api-base-url';
 
 function buildHeaders(): HeadersInit {
   return {
@@ -74,7 +75,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 export function dataProvider(apiUrl: string): DataProvider {
-  const baseUrl = apiUrl.replace(/\/$/, '');
+  const baseUrl = resolveApiBaseUrl(apiUrl);
 
   return {
     getApiUrl: () => baseUrl,

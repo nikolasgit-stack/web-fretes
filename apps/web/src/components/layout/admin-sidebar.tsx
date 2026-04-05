@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { resolveApiBaseUrl } from '../../lib/api-base-url';
 import { cn } from '../ui/cn';
 
 interface NavigationItem {
