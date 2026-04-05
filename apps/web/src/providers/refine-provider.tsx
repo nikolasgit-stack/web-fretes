@@ -34,6 +34,13 @@ const resources = [
     },
   },
   {
+    name: 'transportadoras-arquivos-tabelas-frete',
+    list: '/transportadoras/arquivos/tabelas-frete',
+    meta: {
+      label: 'Tabelas de Frete',
+    },
+  },
+  {
     name: 'centros-distribuicao',
     list: '/centros-distribuicao',
     create: '/centros-distribuicao/create',

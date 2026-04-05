@@ -5,6 +5,9 @@ import { useGetIdentity, useLogout } from '@refinedev/core';
 import { ActionButton } from '../ui/action-button';
 
 function getSectionLabel(pathname: string): string {
+  if (pathname.startsWith('/transportadoras/arquivos/tabelas-frete')) {
+    return 'Tabelas de frete';
+  }
   if (pathname.startsWith('/transportadoras')) return 'Transportadoras';
   if (pathname.startsWith('/centros-distribuicao')) return 'Centros de distribuição';
   if (pathname.startsWith('/regras-frete')) return 'Regras de frete';

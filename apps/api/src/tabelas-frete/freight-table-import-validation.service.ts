@@ -68,6 +68,9 @@ interface ParsedComparisonPrice {
 interface ParsedRangeRow {
   sheet: string;
   rowNumber: number;
+  metodoExternoId: string | null;
+  centroDistribuicaoId: string | null;
+  nomeOrigem: string | null;
   uf: string | null;
   cidade: string | null;
   cepInicial: string;
@@ -82,6 +85,13 @@ interface ParsedRangeRow {
 interface ParsedFeeRow {
   sheet: string;
   rowNumber: number;
+  metodoExternoId: string | null;
+  centroDistribuicaoId: string | null;
+  nomeOrigem: string | null;
+  uf: string | null;
+  cidade: string | null;
+  cepInicial: string | null;
+  cepFinal: string | null;
   tipoTaxa: string;
   minimo: number | null;
   maximo: number | null;
@@ -101,6 +111,37 @@ interface HeaderMatchResult {
   columnByKey: Record<string, number>;
 }
 
+export interface FreightTableValidationResult {
+  valido: boolean;
+  detectedModel: FreightTableModelType;
+  arquivo: {
+    nomeOriginal: string;
+    storagePath: string;
+    tamanhoBytes: number;
+  };
+  configuracao: ParsedGeneralSettings;
+  resumo: {
+    erros: number;
+    avisos: number;
+    totalFaixas: number;
+    totalOrigens: number;
+    totalTaxas: number;
+    linhasValidas: number;
+    linhasInvalidas: number;
+  };
+  preview: {
+    origens: ParsedOriginRow[];
+    faixas: ParsedRangeRow[];
+    taxas: ParsedFeeRow[];
+  };
+  issues: FreightTableValidationIssue[];
+  parsedData: {
+    origens: ParsedOriginRow[];
+    faixas: ParsedRangeRow[];
+    taxas: ParsedFeeRow[];
+  };
+}
+
 const GENERAL_SETTING_ALIASES: Record<keyof ParsedGeneralSettings, string[]> = {
   nomeTabela: ['nomedatabela', 'nometabela'],
   icmsCalculado: ['icms', 'icmsincluso', 'icmscalculado'],
@@ -113,6 +154,9 @@ const GENERAL_SETTING_ALIASES: Record<keyof ParsedGeneralSettings, string[]> = {
 };
 
 const RANGE_HEADER_ALIASES: Record<string, string[]> = {
+  metodoExternoId: ['idmetodo', 'metodoexternoid', 'idmetodoexterno'],
+  centroDistribuicaoId: ['centrodistribuicaoid', 'idcentrodistribuicao', 'centrodistribuicao'],
+  nomeOrigem: ['nomeorigem', 'origem'],
   uf: ['uf', 'estado', 'ufdestino'],
   cidade: ['cidade', 'municipio'],
   cepInicial: ['cepi', 'cepinicial', 'cepdestinoinicial'],
@@ -132,6 +176,13 @@ const ORIGIN_HEADER_ALIASES: Record<string, string[]> = {
 };
 
 const FEE_HEADER_ALIASES: Record<string, string[]> = {
+  metodoExternoId: ['idmetodo', 'metodoexternoid', 'idmetodoexterno'],
+  centroDistribuicaoId: ['centrodistribuicaoid', 'idcentrodistribuicao', 'centrodistribuicao'],
+  nomeOrigem: ['nomeorigem', 'origem'],
+  uf: ['uf', 'estado', 'ufdestino'],
+  cidade: ['cidade', 'municipio'],
+  cepInicial: ['cepi', 'cepinicial', 'cepdestinoinicial'],
+  cepFinal: ['cepf', 'cepfinal', 'cepdestinofinal'],
   tipoTaxa: ['tipotaxa', 'taxa'],
   minimo: ['minimo', 'valorminimo'],
   maximo: ['maximo', 'valormaximo'],
@@ -158,7 +209,15 @@ export class FreightTableImportValidationService {
     transportadoraId: string,
     dto: ValidateFreightTableDto,
     file: UploadedSpreadsheetFile | undefined,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<FreightTableValidationResult> {
+    return this.validateAndParse(transportadoraId, dto, file);
+  }
+
+  async validateAndParse(
+    transportadoraId: string,
+    dto: ValidateFreightTableDto,
+    file: UploadedSpreadsheetFile | undefined,
+  ): Promise<FreightTableValidationResult> {
     if (!file) {
       throw new BadRequestException('Arquivo da planilha e obrigatorio');
     }
@@ -254,6 +313,11 @@ export class FreightTableImportValidationService {
         taxas: fees.slice(0, 5),
       },
       issues,
+      parsedData: {
+        origens: origins,
+        faixas: ranges,
+        taxas: fees,
+      },
     };
   }
 
@@ -488,6 +552,9 @@ export class FreightTableImportValidationService {
         const parsedRange: ParsedRangeRow = {
           sheet: sheet.name,
           rowNumber: rowIndex + 1,
+          metodoExternoId: this.getOptionalCell(row, header.columnByKey.metodoExternoId),
+          centroDistribuicaoId: this.getOptionalCell(row, header.columnByKey.centroDistribuicaoId),
+          nomeOrigem: this.getOptionalCell(row, header.columnByKey.nomeOrigem),
           uf: this.getOptionalCell(row, header.columnByKey.uf),
           cidade: this.getOptionalCell(row, header.columnByKey.cidade),
           cepInicial,
@@ -625,6 +692,13 @@ export class FreightTableImportValidationService {
         const fee: ParsedFeeRow = {
           sheet: sheet.name,
           rowNumber: rowIndex + 1,
+          metodoExternoId: this.getOptionalCell(row, header.columnByKey.metodoExternoId),
+          centroDistribuicaoId: this.getOptionalCell(row, header.columnByKey.centroDistribuicaoId),
+          nomeOrigem: this.getOptionalCell(row, header.columnByKey.nomeOrigem),
+          uf: this.getOptionalCell(row, header.columnByKey.uf),
+          cidade: this.getOptionalCell(row, header.columnByKey.cidade),
+          cepInicial: this.getOptionalCell(row, header.columnByKey.cepInicial),
+          cepFinal: this.getOptionalCell(row, header.columnByKey.cepFinal),
           tipoTaxa: this.getCell(row, header.columnByKey.tipoTaxa),
           minimo: this.parseNumber(this.getOptionalCell(row, header.columnByKey.minimo)),
           maximo: this.parseNumber(this.getOptionalCell(row, header.columnByKey.maximo)),

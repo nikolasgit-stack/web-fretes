@@ -19,6 +19,12 @@ const navigationItems: NavigationItem[] = [
     description: 'Parceiros, integrações e operação',
   },
   {
+    href: '/transportadoras/arquivos/tabelas-frete',
+    label: 'Tabelas de frete',
+    short: 'TB',
+    description: 'Arquivos, validação e importação',
+  },
+  {
     href: '/centros-distribuicao',
     label: 'Centros de distribuição',
     short: 'CD',

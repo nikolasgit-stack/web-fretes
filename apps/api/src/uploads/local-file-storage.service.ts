@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { AppConfigService } from '../config/app-config.service';
 
@@ -29,6 +29,17 @@ export class LocalFileStorageService {
 
     return {
       storagePath: join(relativeDirectory, fileName).replace(/\\/g, '/'),
+    };
+  }
+
+  async readFile(storagePath: string): Promise<{ buffer: Buffer; absolutePath: string }> {
+    const normalizedPath = storagePath.replace(/\//g, '\\');
+    const absolutePath = join(this.configService.storage.basePath, normalizedPath);
+    const buffer = await readFile(absolutePath);
+
+    return {
+      buffer,
+      absolutePath,
     };
   }
 }
