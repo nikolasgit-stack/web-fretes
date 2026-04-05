@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { config as loadEnv } from 'dotenv';
 import { DataSource } from 'typeorm';
 import { CentroDistribuicao } from '../centros-distribuicao/entities/centro-distribuicao.entity';
 import { CotacaoOpcao } from '../cotacoes-opcoes/entities/cotacao-opcao.entity';
@@ -20,6 +21,8 @@ import { InitialSchema1710000000000 } from './migrations/1710000000000-InitialSc
 import { FreightTableImportsFoundation1712000000000 } from './migrations/1712000000000-FreightTableImportsFoundation';
 import { RenameFreightTableModelTypesToWebFretes1713000000000 } from './migrations/1713000000000-RenameFreightTableModelTypesToWebFretes';
 import { OperationalCrudFields1711000000000 } from './migrations/1711000000000-OperationalCrudFields';
+
+loadEnv({ path: '.env.production' });
 
 export default new DataSource({
   type: 'postgres',

@@ -41,6 +41,10 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  FRONTEND_URL?: string;
+
+  @IsOptional()
+  @IsString()
   GCS_BUCKET_NAME?: string;
 
   @IsOptional()

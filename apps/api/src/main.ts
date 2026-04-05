@@ -12,7 +12,7 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix(configService.apiPrefix);
   app.enableCors({
-    origin: true,
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   });
   app.useGlobalPipes(
@@ -26,8 +26,8 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  await app.listen(configService.port, '0.0.0.0');
-  logger.log(`Web Fretes API listening on port ${configService.port}`);
+  await app.listen(process.env.PORT || 10000, '0.0.0.0');
+  logger.log(`Web Fretes API listening on port ${process.env.PORT || 10000}`);
 }
 
 void bootstrap();
